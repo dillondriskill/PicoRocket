@@ -4,10 +4,14 @@ project(rocket C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
+
 add_executable(rocket
   rocket.c
 )
+
 pico_enable_stdio_usb(rocket 1)
 pico_enable_stdio_uart(rocket 1)
+
 pico_add_extra_outputs(rocket)
-target_link_libraries(rocket pico_stdlib)
+
+target_link_libraries(rocket pico_stdlib hardware_i2c)
