@@ -7,7 +7,6 @@ pico_sdk_init()
 
 add_executable(rocket
   rocket.c
-  MPU.c
 )
 
 pico_enable_stdio_usb(rocket 1)
