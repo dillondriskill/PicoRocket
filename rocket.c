@@ -220,11 +220,11 @@ int main() {
         pos[1] += (acc[1] * 9.8) / 55;
         pos[2] += (acc[2] * 9.8) / 55;
         
-        //printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f        ", pos[0], pos[1], pos[2]);
-        //printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f        ", angle[0], angle[1], angle[2]);
-        //printf("Fifo = %d\n", count);
-        printf("Acc. X = %8.3f, Y = %8.3f, Z = %8.3f        ", acc[0], acc[1], acc[2]);
-        printf("Gyr. X = %8.3f, Y = %8.3f, Z = %8.3f\n", gy[0], gy[1], gy[2]);
+        printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f        ", pos[0], pos[1], pos[2]);
+        printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f        ", angle[0], angle[1], angle[2]);
+        printf("Fifo = %d\n", count);
+        //printf("Acc. X = %8.3f, Y = %8.3f, Z = %8.3f        ", acc[0], acc[1], acc[2]);
+        //printf("Gyr. X = %8.3f, Y = %8.3f, Z = %8.3f\n", gy[0], gy[1], gy[2]);
         sleep_ms(1);
 
     }
