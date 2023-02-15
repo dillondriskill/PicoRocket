@@ -1,7 +1,12 @@
 /**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
+ * @file rocket.c
+ * @author Dillon Driskill
+ * @brief The main file for a pico based guidance system for a rocket, using an mpu-6050 for position and aceleration measurements. This is currently a work in progress in very early stages of development
+ * @version 0.1
+ * @date 2023-02-15
+ * 
+ * @copyright Copyright (c) 2023
+ * 
  */
 
 #include <stdio.h>
