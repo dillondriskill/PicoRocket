@@ -50,17 +50,17 @@ void acc_cal_grav(double acc[3], double angle[3]) {
 
     // Now the actual conversion
 
- // gravity[0]  Nothing happens this time
+ // gravity[0] we are roating around this axis
     gravity[1] *= cos(rad[0]) - sin(rad[0]);
     gravity[2] *= sin(rad[0]) + cos(rad[0]);
 
     gravity[0] *= cos(rad[1]) + sin(rad[1]);
- // gravity[1] Nothing happens this time
+ // gravity[1] we are roating around this axis
     gravity[2] *= -sin(rad[1]) + cos(rad[1]);
 
     gravity[0] *= cos(rad[2]) - sin(rad[2]);
     gravity[1] *= sin(rad[2]) + cos(rad[2]);
- // gravity[2] *= -sin(rad[1]) + cos(rad[1]);
+ // gravity[2] we are roating around this axis
 
 
     // Now the gravitational vector should be rotated to be pointing in the correct direction so we can simply remove this vector from the acceleration
@@ -205,7 +205,7 @@ int main() {
         i2c_read_blocking(i2c_default, addr, count_8, 1, false);
         count = ((uint16_t)count_8[0] << 8) | (uint16_t)count_8[1];
         
-        mpu6050_read_fifo(acceleration, gyro);
+        mpu6050_read_raw(acceleration, gyro);
 
         acc[0] = (((round(acceleration[0] / 10) * 10) + AOFF[0]) / 2048.0);
         acc[1] = (((round(acceleration[1] / 10) * 10) + AOFF[1]) / 2048.0);
@@ -225,11 +225,11 @@ int main() {
         pos[1] += (acc[1] * 9.8) / 55;
         pos[2] += (acc[2] * 9.8) / 55;
         
-        printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f        ", pos[0], pos[1], pos[2]);
-        printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f        ", angle[0], angle[1], angle[2]);
-        printf("Fifo = %d\n", count);
-        //printf("Acc. X = %8.3f, Y = %8.3f, Z = %8.3f        ", acc[0], acc[1], acc[2]);
-        //printf("Gyr. X = %8.3f, Y = %8.3f, Z = %8.3f\n", gy[0], gy[1], gy[2]);
+        //printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f        ", pos[0], pos[1], pos[2]);
+        //printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f        ", angle[0], angle[1], angle[2]);
+        //printf("Fifo = %d\n", count);
+        printf("Acc. X = %8.3f, Y = %8.3f, Z = %8.3f        ", acceleration[0], acceleration[1], acceleration[2]);
+        printf("Gyr. X = %8.3f, Y = %8.3f, Z = %8.3f\n", gyro[0], gyro[1], gyro[2]);
         sleep_ms(1);
 
     }
