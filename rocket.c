@@ -16,20 +16,28 @@
 #include "hardware/i2c.h"
 #include "math.h"
 
-// By default these devices  are on bus address 0x68
-static int addr = 0x68;
+#define MPU_ADDRESS 0x68            // Default i2c address of the mpu
+#define PWR_MGMT_ADDRESS 0x6B       // MPU register for power management
+#define ACC_CONFIG_ADDRESS 0x1C     // MPU register for the accerlometer configuration
+#define GYRO_CONFIG_ADDRESS 0x1B    // MPU register for the gyroscope managment
+#define SMPRT_DIV_ADDRESS 0x19      // MPU register for the sample rate divider
+#define LP_CONFIG_ADDRESS 0x1A      // MPU register for the FSYNC and low pass filter
+#define USER_CTRL_ADRESS 0x6A       // MPU register for the user control options (fifo and i2c)
+#define FIFO_EN_ADDRESS 0x23        // MPU register for enabling the fifo
+
+
 
 #define PI 3.14159265359
 
 /**
- * @brief Corrects the accelerometer values for gravity
+ * @brief Removes the gravitational component from the accerlomter readingss
  * 
- * @param acc the accelerometer data
- * @param angle the angle of the rocket
+ * @param acc The accelerometer data to be corrected
+ * @param angle The current rocket heading as a 3 byte euler angle
  */
-void acc_cal_grav(double acc[3], double angle[3]) {
+void acc_cal_grav(double acc[3], const double angle[3]) {
     /**
-     * If you really think about it... This function should be called frame_shift();
+     * If you really think about it... This function should be called frame_shift()...
      *
      * To correct the accelerometer readings for gravity we need to know the angle that the rocket is facing.
      * Once we know this angle we can use 3 rotation matrixes (which use a lot of googling to find) to find the correct x y and z components.
@@ -40,7 +48,7 @@ void acc_cal_grav(double acc[3], double angle[3]) {
      * 2) Rotate around PITCH
      * 3) Rotate around YAW
      * 
-     * Look up wiki rotation matrix
+     * Look up wiki rotation matrix for more information
      */
 
     double gravity[3] = {0, 0, -1};      // Vector of gravity on the world plane
@@ -73,49 +81,50 @@ void acc_cal_grav(double acc[3], double angle[3]) {
 static void mpu6050_reset() {
     // Two byte reset. First byte register, second byte data
     // There are a load more options to set up the device in different ways that could be added here
-    uint8_t buf[] = {0x6B, 0x00};
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    uint8_t data[] = {PWR_MGMT_ADDRESS, 0x00};
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Now to calibrate the sensor and set it to 2000 deg/sec and 16g sensitivity
     // Page 14 of register map has this information
-    buf[0] = 0x1C;  // Accel location
-    buf[1] = 0b11111000;  // Options
-    // Do this 6 times just to really pump it in
+    data[0] = ACC_CONFIG_ADDRESS;   // Accel location
+    data[1] = 0b11111000;           // Options
+
+    // Do this 6 times just to really pump it in, as reccomended by some forums online
     for (int i = 0; i < 6; i ++) {
-        i2c_write_blocking(i2c_default, addr, buf, 2, false);
+        i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
     }
 
     // test gyro
-    buf[0] = 0x1B;  // Gyro location
-    buf[1] = 0b11111000;  // options
+    data[0] = GYRO_CONFIG_ADDRESS;  // Gyro location
+    data[1] = 0b11111000;           // options
     for (int i = 0; i < 6; i ++) {
-        i2c_write_blocking(i2c_default, addr, buf, 2, false);
+        i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
     }
 
     // Set sample rate to 1khz
-    buf[0] = 0x19; // SMPRT_DIV
-    buf[1] = 0x07; // 8khz / (1 / SMPRT_DIV)
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    data[0] = SMPRT_DIV_ADDRESS;    // SMPRT_DIV
+    data[1] = 0x07;                 // 8khz / (1 / SMPRT_DIV)
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Set low pass filter to ~180
-    buf[0] = 0x1A;          // CONFIG
-    buf[1] = 0b00000001;    // Low pass to 188 hz also sets the gyroscope to 1 khz
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    data[0] = LP_CONFIG_ADDRESS;    // CONFIG
+    data[1] = 0b00000001;           // Low pass to 188 hz also sets the gyroscope to 1 khz
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Enable the FIFO in general and reset it
-    buf[0] = 0x6A;          // USER_CTRL
-    buf[1] = 0b01000100;    // Enable and reset the fifio
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    data[0] = USER_CTRL_ADRESS;     // USER_CTRL
+    data[1] = 0b01000100;           // Enable and reset the fifio
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Enable the FIFO for the accelerometer and the Gyroscope
-    buf[0] = 0x23;          // FIFO_EN
-    buf[1] = 0b01111000;    // Turn on GX GY GZ and all of ACCEL
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    data[0] = 0x23;          // FIFO_EN
+    data[1] = 0b01111000;    // Turn on GX GY GZ and all of ACCEL
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Enable the FIFO in general and reset it
-    buf[0] = 0x6A;          // USER_CTRL
-    buf[1] = 0b01000100;    // Enable and reset the fifio
-    i2c_write_blocking(i2c_default, addr, buf, 2, false);
+    data[0] = 0x6A;          // USER_CTRL
+    data[1] = 0b01000100;    // Enable and reset the fifio
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
 }
 
@@ -124,8 +133,8 @@ static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
     uint8_t val = 0x3B;
-    i2c_write_blocking(i2c_default, addr, &val, 1, true); // true to keep master control of bus
-    i2c_read_blocking(i2c_default, addr, buffer, 6, false);
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true); // true to keep master control of bus
+    i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);
 
     for (int i = 0; i < 3; i++) {
         accel[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
@@ -133,8 +142,8 @@ static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
 
     // Now gyro data from reg 0x43 for 6 bytes
     val = 0x43;
-    i2c_write_blocking(i2c_default, addr, &val, 1, true);
-    i2c_read_blocking(i2c_default, addr, buffer, 6, false);  // False - finished with bus
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);
+    i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  // False - finished with bus
 
     for (int i = 0; i < 3; i++) {
         gyro[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
@@ -146,8 +155,8 @@ static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
     uint8_t val = 0x3B;
-    i2c_write_blocking(i2c_default, addr, &val, 1, true); // true to keep master control of bus
-    i2c_read_blocking(i2c_default, addr, buffer, 6, false);
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true); // true to keep master control of bus
+    i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);
 
     for (int i = 0; i < 3; i++) {
         accel[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
@@ -155,8 +164,8 @@ static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
 
     // Now gyro data from reg 0x43 for 6 bytes
     val = 0x43;
-    i2c_write_blocking(i2c_default, addr, &val, 1, true);
-    i2c_read_blocking(i2c_default, addr, buffer, 6, false);  // False - finished with bus
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);
+    i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  // False - finished with bus
 
     for (int i = 0; i < 3; i++) {
         gyro[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
@@ -201,8 +210,8 @@ int main() {
 
         // See fifo count
         uint8_t buf[1] = {0x72};
-        i2c_write_blocking(i2c_default, addr, buf, 1, true);
-        i2c_read_blocking(i2c_default, addr, count_8, 1, false);
+        i2c_write_blocking(i2c_default, MPU_ADDRESS, buf, 1, true);
+        i2c_read_blocking(i2c_default, MPU_ADDRESS, count_8, 1, false);
         count = ((uint16_t)count_8[0] << 8) | (uint16_t)count_8[1];
         
         mpu6050_read_raw(acceleration, gyro);
