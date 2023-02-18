@@ -24,8 +24,8 @@
 #define LP_CONFIG_ADDRESS 0x1A      // MPU register for the FSYNC and low pass filter
 #define USER_CTRL_ADRESS 0x6A       // MPU register for the user control options (fifo and i2c)
 #define FIFO_EN_ADDRESS 0x23        // MPU register for enabling the fifo
-
-
+#define ACC_START_ADDRESS 0x3B      // MPU register for the first of the 6 acceleromter registers
+#define GYRO_START_ADDRESS 0x43     // MPU register for the first of the 6 gyroscope registers
 
 #define PI 3.14159265359
 
@@ -117,13 +117,8 @@ static void mpu6050_reset() {
     i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
     // Enable the FIFO for the accelerometer and the Gyroscope
-    data[0] = 0x23;          // FIFO_EN
+    data[0] = FIFO_EN_ADDRESS;          // FIFO_EN
     data[1] = 0b01111000;    // Turn on GX GY GZ and all of ACCEL
-    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
-
-    // Enable the FIFO in general and reset it
-    data[0] = 0x6A;          // USER_CTRL
-    data[1] = 0b01000100;    // Enable and reset the fifio
     i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
 
 }
@@ -132,7 +127,7 @@ static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
     uint8_t buffer[6];
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
-    uint8_t val = 0x3B;
+    uint8_t val = ACC_START_ADDRESS;
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true); // true to keep master control of bus
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);
 
@@ -141,7 +136,7 @@ static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
     }
 
     // Now gyro data from reg 0x43 for 6 bytes
-    val = 0x43;
+    val = GYRO_START_ADDRESS;
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  // False - finished with bus
 
@@ -154,7 +149,7 @@ static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
     uint8_t buffer[6];
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
-    uint8_t val = 0x3B;
+    uint8_t val = ACC_START_ADDRESS;
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true); // true to keep master control of bus
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);
 
@@ -163,7 +158,7 @@ static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
     }
 
     // Now gyro data from reg 0x43 for 6 bytes
-    val = 0x43;
+    val = GYRO_START_ADDRESS;
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  // False - finished with bus
 
