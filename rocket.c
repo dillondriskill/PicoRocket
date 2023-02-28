@@ -371,8 +371,19 @@ void initialize() {
     mpu6050_reset();
 }
 
+void cls() {
+    printf("\033c");
+}
+
 int main() {
     initialize();
+
+    char userchar;
+
+    while (userchar != 'c') {
+        printf("Welcome to the pico! Type c to continue");
+        userchar = getchar();
+    }
 
     int16_t acceleration[3], gyro[3];
     double acc[3] = {0, 0, 0};
@@ -388,6 +399,7 @@ int main() {
     sleep_ms(500);
 
     while (1) {
+        cls();
 
         // See fifo count
         uint8_t buf[1] = {0x72};
@@ -405,7 +417,7 @@ int main() {
         gy[1] = ((round(gyro[1] / 10) * 10) + GOFF[1]) / 16.3835;
         gy[2] = ((round(gyro[2] / 10) * 10) + GOFF[2]) / 16.3835;
 
-        // acc_cal_grav(acc, angle);
+        acc_cal_grav(acc, angle);
 
         angle[0] += gy[0] / 55;
         angle[1] += gy[1] / 55;
@@ -415,11 +427,12 @@ int main() {
         pos[1] += (acc[1] * 9.8) / 55;
         pos[2] += (acc[2] * 9.8) / 55;
         
-        //printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f        ", pos[0], pos[1], pos[2]);
-        //printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f        ", angle[0], angle[1], angle[2]);
-        //printf("Fifo = %d\n", count);
-        printf("Acc. X = %8.3f, Y = %8.3f, Z = %8.3f        ", acceleration[0], acceleration[1], acceleration[2]);
-        printf("Gyr. X = %8.3f, Y = %8.3f, Z = %8.3f\n", gyro[0], gyro[1], gyro[2]);
+        printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f\n", pos[0], pos[1], pos[2]);
+        printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f\n", angle[0], angle[1], angle[2]);
+        printf("Fifo = %d\n", count);
+
+        //printf("Acc. X = %d, Y = %d, Z = %d        ", acceleration[0], acceleration[1], acceleration[2]);
+        //printf("Gyr. X = %d, Y = %d, Z = %d\n",       gyro[0],         gyro[1],         gyro[2]);
         sleep_ms(1);
 
     }
