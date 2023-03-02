@@ -16,6 +16,8 @@
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/i2c.h"
+#include "pico/float.h"
+#include "pico/double.h"
 
 #define MPU_ADDRESS 0x68            // Default i2c address of the MPU
 #define MPU_PWR_MGMT_ADDRESS 0x6B   // MPU register for power management
@@ -27,7 +29,7 @@
 #define FIFO_EN_ADDRESS 0x23        // MPU register for enabling the fifo
 #define ACC_START_ADDRESS 0x3B      // MPU register for the first of the 6 acceleromter registers
 #define GYRO_START_ADDRESS 0x43     // MPU register for the first of the 6 gyroscope registers
-#define FIFO
+#define FIFO_ADDRESS 0x74           // MPU register for the FIFO
 
 // Options for the MPU Registers
 
@@ -97,7 +99,7 @@
  * Full reference can be found on page 11:
  * https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map.pdf
  */
-#define SMPRT_DIV_OPTIONS 0x07
+#define SMPRT_DIV_OPTIONS 0x00
 
 /**
  * Configures the low pass filter. Filter options can be configured with the following bit mappings:
@@ -123,7 +125,7 @@
  * Full reference can be found on page 11:
  * https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map.pdf
  */
-#define LP_CONFIG_OPTIONS 0x00
+#define LP_CONFIG_OPTIONS 01
 
 /**
  * Enables the FIFO, resets the FIFO buffer, and resets
@@ -189,11 +191,16 @@
  */
 #define FIFO_EN_OPTIONS 0b01111000
 
+// Defines PI for our calculations. Not all compilers have M_PI by default
 #ifndef M_PI
     #define M_PI 3.14159265358979323846264338327950288
 #endif
-
 #define PI M_PI
+
+// abs() may not be defined for some reason
+#ifndef abs
+    #define abs(N) ((N<0)?(-N):(N))
+#endif
 
 /**
  * @brief Removes the gravitational component from the accerlomter readingss
@@ -247,7 +254,7 @@ void acc_cal_grav(double acc[3], const double angle[3]) {
  * and fifo, and resetting all the registers and fifo
  * 
  */
-static void mpu6050_reset() {
+void mpu6050_reset() {
     // Two byte packet: First byte register, second byte data
     uint8_t data[2];
     
@@ -300,17 +307,41 @@ static void mpu6050_reset() {
 }
 
 /**
+ * @brief Clear the MPU fifo
+ * 
+*/
+void clear_fifo() {
+    uint8_t data[2];
+
+    // Clear the FIFO and registers again
+    data[0] = USER_CTRL_ADRESS;
+    data[1] = USER_CTRL_OPTIONS;
+    i2c_write_blocking(i2c_default, MPU_ADDRESS, data, 2, false);
+}
+
+/**
  * @brief Reads in data from the fifo in two 6 long uint8_t bursts, and converts them to 
  * 3 uint16_t arrays. The first 6 are placed in 
  * 
  * @param accel 
  * @param gyro 
 */
-static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
+void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
+    // See fifo count
+    uint8_t count_8[2];
+    uint16_t count;
+    uint8_t buf[1] = {0x72};
+    do {
+        i2c_write_blocking(i2c_default, MPU_ADDRESS, buf, 1, true);
+        i2c_read_blocking(i2c_default, MPU_ADDRESS, count_8, 1, false);
+        count = ((uint16_t)count_8[0] << 8) | (uint16_t)count_8[1];
+    } while (count <= 6);
+    
+
     uint8_t buffer[6];
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
-    uint8_t val = ACC_START_ADDRESS;
+    uint8_t val = FIFO_ADDRESS;
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);    // true to keep master control of bus
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  // false b/c we are finished with the bus
 
@@ -319,17 +350,23 @@ static void mpu6050_read_fifo(int16_t accel[3], int16_t gyro[3]) {
         accel[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
     }
 
-    // Now gyro data from reg 0x43 for 6 bytes
-    val = GYRO_START_ADDRESS;
+    // read the information that will be the gyroscope
     i2c_write_blocking(i2c_default, MPU_ADDRESS, &val, 1, true);
     i2c_read_blocking(i2c_default, MPU_ADDRESS, buffer, 6, false);  
 
+    // Reconstruct the 8 bit packets to 16 bits
     for (int i = 0; i < 3; i++) {
         gyro[i] = (buffer[i * 2] << 8 | buffer[(i * 2) + 1]);
     }
 }
 
-static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
+/**
+ * @brief Read the raw register values at the current moment for the MPU
+ * 
+ * @param accel buffer to place the x, y, z values into
+ * @param gyro  buffer to place the x, y, z values into
+*/
+void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
     uint8_t buffer[6];
 
     // Start reading acceleration registers from register 0x3B for 6 bytes
@@ -352,13 +389,16 @@ static void mpu6050_read_raw(int16_t accel[3], int16_t gyro[3]) {
     }
 }
 
+/**
+ * @brief Initializes all the components of the guidance computer
+ * 
+*/
 void initialize() {
     // This will get the board ready for flight
     stdio_init_all();
 
     // Turn on light cuz why not
     gpio_pull_up(PICO_DEFAULT_LED_PIN);
-    gpio_pull_up(27);
 
     // This will use I2C0 on the default SDA and SCL pins (4, 5 on a Pico)
     i2c_init(i2c_default, 400 * 1000);
@@ -371,70 +411,194 @@ void initialize() {
     mpu6050_reset();
 }
 
+/**
+ * @brief Clear the screen over the serial terminal 
+ */
 void cls() {
     printf("\033c");
+}
+
+/**
+ * @brief Obtains reasonable offsets for the acclerometer and gyroscope using standard deviations
+ * 
+ * @param acc 
+ * @param gyro 
+*/
+void calibrate_mpu(int16_t acc[3], int16_t gyro[3], int av[3], int gv[3]){
+    int16_t aoff[3] = {0, 0, 0};
+    int16_t goff[3] = {0, 0, 0};
+    int16_t tempa[3], tempg[3];
+    int16_t ax[10000], ay[10000], az[10000], gx[10000], gy[10000], gz[10000];
+    int32_t axm = 0;
+    int32_t aym = 0;
+    int32_t azm = 0;
+    int32_t gxm = 0;
+    int32_t gym = 0;
+    int32_t gzm = 0;
+
+
+    clear_fifo();
+    sleep_ms(100);
+
+    for (int i = 0; i < 10000; i++) {
+        mpu6050_read_fifo(tempa, tempg);
+        ax[i] = tempa[0];
+        ay[i] = tempa[1];
+        az[i] = tempa[2];
+
+        gx[i] = tempg[0];
+        gy[i] = tempg[1];
+        gz[i] = tempg[2];
+    }
+
+    for (int i = 0; i < 10000; i++) {
+        axm += ax[i];
+        aym += ay[i];
+        azm += az[i];
+        gxm += gx[i];
+        gym += gy[i];
+        gzm += gz[i];
+    }
+
+    axm /= 10000;
+    aym /= 10000;
+    azm /= 10000;
+    gxm /= 10000;
+    gym /= 10000;
+    gzm /= 10000;
+
+    for (int i = 0; i < 10000; i++) {
+        ax[i] = (ax[i] -  axm)*(ax[i] -  axm);
+        ay[i] = (ay[i] -  aym)*(ay[i] -  aym);
+        az[i] = (az[i] -  azm)*(az[i] -  azm);
+
+        gx[i] = (gx[i] -  gxm)*(gx[i] -  gxm);
+        gy[i] = (gy[i] -  gym)*(gy[i] -  gym);
+        gz[i] = (gz[i] -  gzm)*(gz[i] -  gzm);
+    }
+
+    axm = 0;
+    aym = 0;
+    azm = 0;
+    gxm = 0;
+    gym = 0;
+    gzm = 0;
+
+    for (int i = 0; i < 10000; i++) {
+        axm += ax[i];
+        aym += ay[i];
+        azm += az[i];
+        gxm += gx[i];
+        gym += gy[i];
+        gzm += gz[i];
+    }
+
+    axm = sqrt((axm/10000));
+    aym = sqrt((aym/10000));
+    azm = sqrt((azm/10000));
+    gxm = sqrt((gxm/10000));
+    gym = sqrt((gym/10000));
+    gzm = sqrt((gzm/10000));
+
+    av[0] = axm;
+    av[1] = aym;
+    av[2] = azm;
+
+    gv[0] = gxm;
+    gv[1] = gym;
+    gv[2] = gzm;
+
 }
 
 int main() {
     initialize();
 
-    char userchar;
+    bool connected = false;
+    char userin;
 
-    while (userchar != 'c') {
-        printf("Welcome to the pico! Type c to continue");
-        userchar = getchar();
+    while (!connected) {
+        connected = stdio_usb_connected;
+        sleep_ms(250);
+        gpio_pull_up(PICO_DEFAULT_LED_PIN);
+        sleep_ms(250);
+        gpio_pull_down(PICO_DEFAULT_LED_PIN);
+
     }
+
+    userin = getchar();
+    sleep_ms(250);
+    printf("\n");
+    printf("Welcome to the pico\n");
+    printf("Type \'c\' to get started...\n");
+    printf(">");
+
+    while (userin != 'c') {
+        printf("\n");
+        printf("Type \'c\' to get started...\n");
+        printf(">");
+        userin = getchar();
+    }
+    
 
     int16_t acceleration[3], gyro[3];
     double acc[3] = {0, 0, 0};
     double gy[3] = {0, 0, 0};
     double pos[3] = {0, 0, 0};
-    double angle[3] = {0, 90, 90};
+    double angle[3] = {0, 0, 0};
 
-    int16_t AOFF[3] = {-1051, -7, -1525};
-    int16_t GOFF[3] = {-710, 840, -990};
-    uint8_t count_8[2] = {0, 0};
+    int16_t AOFF[3];
+    int16_t GOFF[3];
+    int av[3], gv[3];
+    uint8_t count_8[2];
     uint16_t count;
 
-    sleep_ms(500);
+    calibrate_mpu(AOFF, GOFF, av, gv);
 
+    clear_fifo();
+
+    gpio_pull_up(PICO_DEFAULT_LED_PIN);
     while (1) {
-        cls();
+        if (stdio_usb_connected) {
+            // See fifo count
+            uint8_t buf[1] = {0x72};
+            i2c_write_blocking(i2c_default, MPU_ADDRESS, buf, 1, true);
+            i2c_read_blocking(i2c_default, MPU_ADDRESS, count_8, 1, false);
+            count = ((uint16_t)count_8[0] << 8) | (uint16_t)count_8[1];
+            
+            mpu6050_read_raw(acceleration, gyro);
 
-        // See fifo count
-        uint8_t buf[1] = {0x72};
-        i2c_write_blocking(i2c_default, MPU_ADDRESS, buf, 1, true);
-        i2c_read_blocking(i2c_default, MPU_ADDRESS, count_8, 1, false);
-        count = ((uint16_t)count_8[0] << 8) | (uint16_t)count_8[1];
-        
-        mpu6050_read_raw(acceleration, gyro);
+            for (int i = 0; i < 3; i++) {
+                if (abs(acceleration[i] - AOFF[i]) < av[i]) {
+                    acc[i] = (((round(acceleration[i] / 10) * 10) + AOFF[0]) / 2048.0);
+                }
+            }
+            
+            for (int i = 0; i < 3; i++) {
+                if (abs(gyro[i] - GOFF[i]) < gv[i]) {
+                    gy[i] = ((round(gyro[i] / 10) * 10) + GOFF[0]) / 16.3835;
+                }
+            }
 
-        acc[0] = (((round(acceleration[0] / 10) * 10) + AOFF[0]) / 2048.0);
-        acc[1] = (((round(acceleration[1] / 10) * 10) + AOFF[1]) / 2048.0);
-        acc[2] = (((round(acceleration[2] / 10) * 10) + AOFF[2]) / 2048.0);
+            acc_cal_grav(acc, angle);
 
-        gy[0] = ((round(gyro[0] / 10) * 10) + GOFF[0]) / 16.3835;
-        gy[1] = ((round(gyro[1] / 10) * 10) + GOFF[1]) / 16.3835;
-        gy[2] = ((round(gyro[2] / 10) * 10) + GOFF[2]) / 16.3835;
+            angle[0] += gy[0] / 1000;
+            angle[1] += gy[1] / 1000;
+            angle[2] += gy[2] / 1000;
 
-        acc_cal_grav(acc, angle);
-
-        angle[0] += gy[0] / 55;
-        angle[1] += gy[1] / 55;
-        angle[2] += gy[2] / 55;
-
-        pos[0] += (acc[0] * 9.8) / 55;
-        pos[1] += (acc[1] * 9.8) / 55;
-        pos[2] += (acc[2] * 9.8) / 55;
-        
-        printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f\n", pos[0], pos[1], pos[2]);
-        printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f\n", angle[0], angle[1], angle[2]);
-        printf("Fifo = %d\n", count);
-
-        //printf("Acc. X = %d, Y = %d, Z = %d        ", acceleration[0], acceleration[1], acceleration[2]);
-        //printf("Gyr. X = %d, Y = %d, Z = %d\n",       gyro[0],         gyro[1],         gyro[2]);
-        sleep_ms(1);
-
+            pos[0] += (acc[0] * 9.8) / 55;
+            pos[1] += (acc[1] * 9.8) / 55;
+            pos[2] += (acc[2] * 9.8) / 55;
+            
+            //printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f          ", pos[0], pos[1], pos[2]);
+            //printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f          ", angle[0], angle[1], angle[2]);
+            //printf("Fifo = %d\n", count);
+            printf("Pos. X = %8.3f, Y = %8.3f, Z = %8.3f          ", acc[0], acc[1], acc[2]);
+            printf("Ang. X = %8.3f, Y = %8.3f, Z = %8.3f          ", gy[0], gy[1], gy[2]);
+            printf("Fifo = %d\n", count);
+            //printf("Pos. X = %d, Y = %d, Z = %d          ",acceleration[0], acceleration[1], acceleration[2]);
+            //printf("Ang. X = %d, Y = %d, Z = %d          ", gyro[0], gyro[1], gyro[2]);
+            //printf("Fifo = %d\n", count);
+        }
     }
 
     return 0;

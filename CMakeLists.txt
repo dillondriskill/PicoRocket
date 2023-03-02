@@ -14,4 +14,4 @@ pico_enable_stdio_uart(rocket 1)
 
 pico_add_extra_outputs(rocket)
 
-target_link_libraries(rocket pico_stdlib hardware_i2c)
+target_link_libraries(rocket pico_stdlib hardware_i2c pico_float pico_double)
