@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_executable(rocket
-  rocket.c
+  src/rocket/rocket.c
+  src/kernel/kernel.c
+  src/terminal/terminal.c
+  src/guidance/guidance.c
 )
 
 pico_enable_stdio_usb(rocket 1)
@@ -14,4 +17,4 @@ pico_enable_stdio_uart(rocket 1)
 
 pico_add_extra_outputs(rocket)
 
-target_link_libraries(rocket pico_stdlib hardware_i2c pico_float pico_double)
+target_link_libraries(rocket pico_stdlib hardware_gpio)

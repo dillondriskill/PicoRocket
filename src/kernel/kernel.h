@@ -1,0 +1,16 @@
+/**
+ * @file kernel.h
+ * @author Dillon Driskill (dillondriskill2@gmail.com)
+ * @brief Contains headers for kernel.c
+ * @version 0.1
+ * @date 2023-03-03
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+*/
+
+/**
+ * @brief Initializes the system. Starts by initializing all the io, and turning on the led.
+ * 
+*/
+void initialize();
