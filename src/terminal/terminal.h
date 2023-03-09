@@ -4,9 +4,9 @@
  * @brief Contains headers for terminal.c
  * @version 0.1
  * @date 2023-03-03
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
 */
 
 /**
@@ -14,3 +14,15 @@
  * every 100 milliseconds, and will connect to that when it connects.
 */
 void start_terminal();
+
+/**
+ * @brief Clears screen
+ *
+*/
+void cls();
+
+/**
+ * @brief Outputs the 'beep' character. Will make the terminal beep
+ *
+*/
+void beep();
