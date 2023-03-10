@@ -11,16 +11,22 @@
 
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "../kernel/kernel.h"
 #include "tusb.h"
+#include "commands.h"
+#include "terminal.h"
+#include "../kernel/kernel.h"
+
 
 static char get_command();
 static bool do_command(const char command);
+static void import_commands();
 
 void start_terminal() {
     bool connected;
     bool prompting = true;
     char command;
+
+
 
     // Wait until a usb is connected
     do {
@@ -94,29 +100,27 @@ static char get_command() {
 static bool do_command(char command) {
     bool continuing = true;
 
-    switch (command) {
-    case 'q':
-        continuing = false;
-        break;
-    case 'r':
-        printf("Resetting...\n\n");
-        sleep_ms(100);
-        reset();
-        continuing = false; // Will never execute this far
-        break;
-    case 'b':
-        printf("Entering bootloader mode...\n\n");
-        sleep_ms(100);
-        boot_reset();
-        continuing = false; // Will never execute:
-        break;
-    case 0:
-        break;
-    default:
-        printf("Unknown command!\n\n");
-        break;
+    // Special case for h
+    if (command == 'h') {
+        for (int i = 0; i < NUMBER_OF_COMMANDS; i++) {
+            if (command == commands[i].callerchar) {
+                printf("%c\n", commands[i].callerchar);
+                printf("Meaning - %s", commands[i].helpmsg);
+                printf("\n");
+            } else {
+                printf("this didnt work\n");
+            }
+            
+        }
+    } else {
+        for (int i = 0; i < NUMBER_OF_COMMANDS; i++) {
+            if (command == commands[i].callerchar) {
+                ((*commands[i].entry)()); // call the entry point for that 
+            } else {
+                printf("this also didnt work\n");
+            }
+        }
     }
-
     return continuing;
 }
 
@@ -126,4 +130,10 @@ void cls() {
 
 void beep() {
     putchar('\7');
+}
+
+static void import_commands() {
+    commands[0] = guidance_o;
+    commands[1] = reset_o;
+    commands[2] = reset_boot_o;
 }

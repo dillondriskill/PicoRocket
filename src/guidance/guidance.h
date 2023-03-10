@@ -8,3 +8,9 @@
  * @copyright Copyright (c) 2023
  *
 */
+
+/**
+ * @brief Entry point for the guidance program
+ * 
+*/
+void guidance_entry();
