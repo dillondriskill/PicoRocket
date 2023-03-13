@@ -26,6 +26,8 @@ void start_terminal() {
     bool prompting = true;
     char command;
 
+    // actually be able to use the commands
+    import_commands();
 
 
     // Wait until a usb is connected
@@ -76,6 +78,7 @@ static char get_command() {
         userin = getchar();
         // Check for enter, and return the last character actually typed
         if (userin == '\r') {
+            putchar('\n');
             entered = true;
         } else {
             oldin = userin;
@@ -85,7 +88,6 @@ static char get_command() {
             putchar(oldin);
         }
     }
-    putchar('\n');
 
     return oldin;
 }
@@ -99,27 +101,25 @@ static char get_command() {
 */
 static bool do_command(char command) {
     bool continuing = true;
+    bool found = false;
 
     // Special case for h
     if (command == 'h') {
+        printf("Command | Meaning\n");
         for (int i = 0; i < NUMBER_OF_COMMANDS; i++) {
-            if (command == commands[i].callerchar) {
-                printf("%c\n", commands[i].callerchar);
-                printf("Meaning - %s", commands[i].helpmsg);
-                printf("\n");
-            } else {
-                printf("this didnt work\n");
-            }
-            
+            printf("   %c    | %s\n", commands[i]->callerchar, commands[i]->helpmsg);
+
         }
     } else {
         for (int i = 0; i < NUMBER_OF_COMMANDS; i++) {
-            if (command == commands[i].callerchar) {
-                ((*commands[i].entry)()); // call the entry point for that 
-            } else {
-                printf("this also didnt work\n");
+            if (commands[i]->callerchar == command) {
+                (commands[i]->entry)();
+                found = true;
             }
         }
+    }
+    if (!found) {
+        printf("Unknown Command!\n");
     }
     return continuing;
 }
@@ -132,8 +132,13 @@ void beep() {
     putchar('\7');
 }
 
+/**
+ * @brief Puts the commands from commands.h into an array. I will find a way to automate this better.
+ *
+*/
 static void import_commands() {
-    commands[0] = guidance_o;
-    commands[1] = reset_o;
-    commands[2] = reset_boot_o;
+    commands[0] = &guidance_o;
+    commands[1] = &reset_o;
+    commands[2] = &reset_boot_o;
+    commands[3] = &load_o;
 }

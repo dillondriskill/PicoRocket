@@ -12,34 +12,43 @@
 #include "../kernel/kernel.h"
 #pragma once
 
-// Number of commands not including the help command. Needs to be updated every time a new command is made, as well as updating the code in commands.c
-// This will be improved upon later
-#define NUMBER_OF_COMMANDS 3
+// Maximum number of commands I'm assuming we will need
+// Will be improved upon in the future
+
+#define NUMBER_OF_COMMANDS 4
 
 /**
  * @brief Struct of a terminal command. Contains the character that calls this command, as well as a pointer to the commands entry point
  *
 */
-struct Command {
+typedef struct {
     char callerchar;
     void (*entry)(void);
     char helpmsg[64];
-} commands[NUMBER_OF_COMMANDS];
+}Command;
 
-struct Command guidance_o = {
+Command* commands[NUMBER_OF_COMMANDS];
+
+Command guidance_o = {
     .callerchar = 'g',
     .entry = &guidance_entry,
     .helpmsg = "Runs the rockets guidance program\n",
 };
 
-struct Command reset_o = {
+Command reset_o = {
     .callerchar = 'r',
     .entry = &reset,
     .helpmsg = "Restarts the guidance computer\n"
 };
 
-struct Command reset_boot_o = {
+Command reset_boot_o = {
     .callerchar = 'b',
-    .entry = &reset,
-    .helpmsg = "Restarts the pico into usb bootloader mode\n"
+    .entry = &boot_reset,
+    .helpmsg = "Restarts the guidance computer into usb bootloader mode\n"
+};
+
+Command load_o = {
+    .callerchar = 'l',
+    .entry = &load_program,
+    .helpmsg = "Loads a guidance program onto flash"
 };

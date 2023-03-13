@@ -32,3 +32,11 @@ void reset() {
 void boot_reset() {
     reset_usb_boot(0, 0);
 }
+
+void launch_rocket() {
+    printf("launching rocket!!!\n");
+}
+
+void load_program() {
+
+}

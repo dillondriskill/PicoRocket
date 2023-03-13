@@ -26,3 +26,15 @@ void reset();
  *
 */
 void boot_reset();
+
+/**
+ * @brief Launches the rocket, starts executing guidance program
+ *
+*/
+void launch_rocket();
+
+/**
+ * @brief Loads a guidance program into memory
+ *
+*/
+void load_program();
