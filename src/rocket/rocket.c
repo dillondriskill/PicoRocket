@@ -15,6 +15,7 @@
 #include "../kernel/kernel.h"
 #include "../terminal/terminal.h"
 #include "../guidance/guidance.h"
+#include "hardware/flash.h"
 
  /**
   * @brief PicoRocket entry point

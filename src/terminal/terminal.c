@@ -141,4 +141,6 @@ static void import_commands() {
     commands[1] = &reset_o;
     commands[2] = &reset_boot_o;
     commands[3] = &load_o;
+    commands[4] = &launch_o;
+    commands[5] = &read_o;
 }
