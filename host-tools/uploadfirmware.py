@@ -19,26 +19,29 @@ def main():
     file_path_str = input("Enter the filepath to the program to upload: ")
     file_path = Path(file_path_str)
     file = file_path.read_bytes()
+    print("Opened file: " + file_path_str)
     
-    print("Commanding device...")
+    print("Commanding device to enter programming mode...")
     device.write(b'p\r')
-    print("Device commanded")
 
+    # Wait for response from device. We wait until the OK signal because it will also type the user prompt
     while device.read() != OK:
         pass
+    print("Device is ready")
+    print()
 
     # Send length 
-    print("Sending length...")
     filelen = len(file)
-    print("File len is: " + str(filelen))
     numpages = math.ceil(filelen/256) # Number of pages, rounded up to next whole page
+    print("File length is: " + str(filelen))
     print("Number of pages: " + str(numpages))
     print("Uploading to device: " + str(numpages.to_bytes(1, 'little')))
     device.write(numpages.to_bytes(1, 'little'))
 
     # Recieve acknowledgement
     returned = device.read()
-    print(str(returned))
+    print("Device reported readiness for: " + str(returned) +  " pages")
+    print()
 
     # Send data
     print("Uploading data...")
@@ -53,7 +56,7 @@ def main():
                 device.write(b'\0')
             written += 1
         # Recieve acknowledgement
-        print(device.read())
+        print("Device returned: " + str(device.read()))
     
     print("Data uploaded")
     print("Finished")
