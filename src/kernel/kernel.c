@@ -10,11 +10,14 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "pico/stdlib.h"
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "hardware/flash.h"
 #include "kernel.h"
+#include "hardware/sync.h"
 
 
 void initialize() {
@@ -42,69 +45,100 @@ void launch_rocket() {
 }
 
 void load_program() {
-    char ack; // acknowledgement from the host
-    long int length; // 32 bit integer to hold the length of the program
-    uint8_t buff[FLASH_PAGE_SIZE]; // one flash page sized buffer to hold data for the programs as they come in
-    // set buffer to all 0s
+    uint8_t pages;
+    uint8_t data[FLASH_PAGE_SIZE];
+    uint8_t* temp;
     for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
-        buff[i] = 0x00;
-    }
+        data[i] = 0x00;
+    } 
+    int ints; // Used for interupt handling
 
-    // Erase the last sector of flash to make sure any old data is gone
-    flash_range_erase(LAST_FLASH_PAGE, FLASH_SECTOR_SIZE);
+    // Clear our data regions in flash
+    ints = save_and_disable_interrupts();
+    flash_range_erase((uint32_t)PROGRAM_LENGTH_OFFSET, 4096*16);
+    restore_interrupts(ints);
+    
+    // Tell the host we're ready
+    putchar(OK);
 
-    // Wait for the user/host to send an l to tell us that we are about to recieve the program
-    do {
-        ack = getchar();
-    } while (ack != 'l');
+    // Recieve the number of pages
+    pages = getchar();
+    data[0] = pages;
+    ints = save_and_disable_interrupts();
+    flash_range_program(PROGRAM_LENGTH_OFFSET, data, FLASH_PAGE_SIZE);
+    restore_interrupts(ints);
 
-    //now recieve the length of the program as a 32 bit int
-    scanf("%ld", &length);
+    // Tell the host what we recieved
+    temp = (uint8_t *)(XIP_BASE + PROGRAM_LENGTH_OFFSET);
+    putchar(*temp);
 
-    // load the 32 bit into the page buffer
-    buff[0] = length & 0xFF;
-    buff[1] = (length >> 8) & 0xFF;
-    buff[2] = (length >> 16) & 0xFF;
-    buff[3] = (length >> 24) & 0xFF;
-
-    // Write
-    flash_range_program(PROGRAM_LENGTH_OFFSET, buff, FLASH_PAGE_SIZE);
-
-    // Wait for 'p' from host to signal the start of the program data
-    do {
-        ack = getchar();
-    } while (ack != 'p');
-
-    long int written = 0;
-    char writing;
-    while (written < length) {
-        writing = (length - written > FLASH_PAGE_SIZE ? FLASH_PAGE_SIZE : length - written);
-        // Get data
-        for (int i = 0; i < writing; i++) {
-            buff[i] = getchar();
+    // Recieve data
+    for (int page = 0; page < *temp; page++) {
+        for (int byte = 0; byte < FLASH_PAGE_SIZE; byte++) {
+            data[byte] = getchar();
         }
         // Write data
-        flash_range_program(PROGRAM_OFFSET + written, buff, FLASH_PAGE_SIZE);
+        ints = save_and_disable_interrupts();
+        flash_range_program(PROGRAM_OFFSET + (FLASH_PAGE_SIZE * page), data, FLASH_PAGE_SIZE);
+        restore_interrupts(ints);
 
-        // Clear buffer
-        for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
-            buff[i] = 0x00;
-        }
-
-        // update
-        written += FLASH_PAGE_SIZE;
+        // Tell host we're good
+        putchar(OK);
     }
+
+    // Restart
+    reset();
 }
 
 void read_out() {
-    uint32_t* length_ptr = (uint32_t *) PROGRAM_LENGTH_OFFSET;
-    uint8_t* program_ptr = (uint8_t *) PROGRAM_OFFSET;
+    uint8_t* length_ptr = (uint8_t *) XIP_BASE + PROGRAM_LENGTH_OFFSET;
+    uint8_t* program_ptr = (uint8_t *) XIP_BASE + PROGRAM_OFFSET;
 
-    for (int i = 0; i < *length_ptr; i++) {
-        if (i % 16 == 15) {
+    putchar('\n');
+    for (int i = 0; i < (*length_ptr) * FLASH_PAGE_SIZE; i++) {
+        if (i % 16 == 0) {
             putchar('\n');
         }
-        // print out each byte as a hexadecimal with an extra space between each one for readability
-        printf("%hhx ", program_ptr[i]);
+        printf("%02hhX ", program_ptr[i]);
     }
+    putchar('\n');
+}
+
+void test_flash() {
+    const uint32_t sector = 512 * 1024;
+    uint8_t buffer[FLASH_PAGE_SIZE];
+    sleep_ms(100);
+    printf("Testing the flash...\n");
+
+    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
+        buffer[i] = i;
+    }
+
+    printf("Buffer filled with: \n");
+    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
+        if (i % 16 == 0) {
+            printf("\n");
+        }
+        printf("%02hhX ", buffer[i]);
+    }
+    putchar('\n');
+
+    printf("Programming...\n");
+    uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(sector, FLASH_SECTOR_SIZE);
+    flash_range_program(sector, buffer, FLASH_PAGE_SIZE);
+    restore_interrupts(ints);
+    printf("Flash programmed...\n\n");
+
+    printf("The result is: \n");
+
+    const uint8_t* written_data = (uint8_t *) (XIP_BASE + sector);
+
+    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
+        if (i % 16 == 0) {
+            printf("\n");
+        }
+        printf("%02hhX ", written_data[i]);
+    }
+    putchar('\n');
 }

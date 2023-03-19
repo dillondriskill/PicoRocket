@@ -9,9 +9,9 @@
  *
 */
 
-#define LAST_FLASH_PAGE (XIP_BASE + PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
-#define PROGRAM_LENGTH_OFFSET (LAST_FLASH_PAGE + 1)
-#define PROGRAM_OFFSET (XIP_BASE + (512 * 1024))
+#define PROGRAM_LENGTH_OFFSET (512 * 1024)
+#define PROGRAM_OFFSET (513 * 1024)
+#define OK 0x00
 
 /**
  * @brief Initializes the system. Starts by initializing all the io, and turning on the led.
@@ -20,7 +20,7 @@
 void initialize();
 
 /**
- * @brief Restarts the pico
+ * @brief Restarts the pico using the watchdog timer
  *
 */
 void reset();
@@ -48,3 +48,9 @@ void load_program();
  * 
 */
 void read_out();
+
+/**
+ * @brief Tests the flash
+ * 
+*/
+void test_flash();

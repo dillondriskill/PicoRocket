@@ -13,12 +13,13 @@
 
 #include "../guidance/guidance.h"
 #include "../kernel/kernel.h"
+#include "terminal.h"
 #pragma once
 
 // Maximum number of commands I'm assuming we will need
 // Will be improved upon in the future
 
-#define NUMBER_OF_COMMANDS 6
+#define NUMBER_OF_COMMANDS 7
 
 /**
  * @brief Struct of a terminal command. Contains the character that calls this command, as well as a pointer to the commands entry point
@@ -27,7 +28,7 @@
 typedef struct {
     char callerchar;
     void (*entry)(void);
-    char helpmsg[64];
+    char helpmsg[128];
 }Command;
 
 Command* commands[NUMBER_OF_COMMANDS];
@@ -53,17 +54,23 @@ Command reset_boot_o = {
 Command load_o = {
     .callerchar = 'p',
     .entry = &load_program,
-    .helpmsg = "Loads a guidance program onto flash"
+    .helpmsg = "Loads a guidance program onto flash. Should only be used by host tools\n"
 };
 
 Command launch_o = {
     .callerchar = 'l',
     .entry = &launch_rocket,
-    .helpmsg = "Launches the rocket, then starts the guidance program"
+    .helpmsg = "Launches the rocket, then starts the guidance program\n"
 };
 
 Command read_o = {
     .callerchar = 'd',
     .entry = &read_out,
-    .helpmsg = "Reads out the program data"
+    .helpmsg = "Reads out the program data\n"
+};
+
+Command test_o = {
+    .callerchar = 't',
+    .entry = &test_flash,
+    .helpmsg = "Tests the flash\n"
 };

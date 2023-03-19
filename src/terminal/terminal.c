@@ -10,6 +10,8 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "pico/stdlib.h"
 #include "tusb.h"
 #include "commands.h"
@@ -59,8 +61,6 @@ void start_terminal() {
     }
 
     printf("Exiting terminal program...\n");
-
-    return;
 }
 
 /**
@@ -117,9 +117,9 @@ static bool do_command(char command) {
                 found = true;
             }
         }
-    }
-    if (!found) {
-        printf("Unknown Command!\n");
+        if (!found) {
+            printf("Unknown Command!\n");
+        }
     }
     return continuing;
 }
@@ -143,4 +143,5 @@ static void import_commands() {
     commands[3] = &load_o;
     commands[4] = &launch_o;
     commands[5] = &read_o;
+    commands[6] = &test_o;
 }

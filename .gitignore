@@ -58,3 +58,5 @@ build/*
 .DS_Store
 
 *.sh
+
+host-tools/upload
