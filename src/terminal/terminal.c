@@ -144,4 +144,5 @@ static void import_commands() {
     commands[4] = &launch_o;
     commands[5] = &read_o;
     commands[6] = &test_o;
+    commands[7] = &test_servo_o;
 }

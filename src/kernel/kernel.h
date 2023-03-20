@@ -54,3 +54,12 @@ void read_out();
  * 
 */
 void test_flash();
+
+/**
+ * @brief Tests a servo on pin 0
+ * 
+*/
+void test_servo();
+
+void setMillis(int servoPin, float millis);
+void setServo(int servoPin, float startMillis);

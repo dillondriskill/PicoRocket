@@ -19,7 +19,7 @@
 // Maximum number of commands I'm assuming we will need
 // Will be improved upon in the future
 
-#define NUMBER_OF_COMMANDS 7
+#define NUMBER_OF_COMMANDS 8
 
 /**
  * @brief Struct of a terminal command. Contains the character that calls this command, as well as a pointer to the commands entry point
@@ -73,4 +73,10 @@ Command test_o = {
     .callerchar = 't',
     .entry = &test_flash,
     .helpmsg = "Tests the flash\n"
+};
+
+Command test_servo_o = {
+    .callerchar = 's',
+    .entry = &test_servo,
+    .helpmsg = "Tests a servo on pin 0\n"
 };

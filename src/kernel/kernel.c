@@ -18,7 +18,12 @@
 #include "hardware/flash.h"
 #include "kernel.h"
 #include "hardware/sync.h"
+#include "hardware/pwm.h"
+#include "hardware/clocks.h"
 
+// USED ONLY FOR THE SERVOS
+static float clockDiv = 64;
+static float wrap = 39062;
 
 void initialize() {
     stdio_init_all();
@@ -141,4 +146,57 @@ void test_flash() {
         printf("%02hhX ", written_data[i]);
     }
     putchar('\n');
+}
+
+void setMillis(int servoPin, float millis)
+{
+    pwm_set_gpio_level(servoPin, (millis/20000.f)*wrap);
+}
+
+void setServo(int servoPin, float startMillis)
+{
+    gpio_set_function(servoPin, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(servoPin);
+
+    pwm_config config = pwm_get_default_config();
+    
+    uint64_t clockspeed = clock_get_hz(5);
+    clockDiv = 64;
+    wrap = 39062;
+
+    while (clockspeed/clockDiv/50 > 65535 && clockDiv < 256) clockDiv += 64; 
+    wrap = clockspeed/clockDiv/50;
+
+    pwm_config_set_clkdiv(&config, clockDiv);
+    pwm_config_set_wrap(&config, wrap);
+
+    pwm_init(slice_num, &config, true);
+
+    setMillis(servoPin, startMillis);
+}
+
+void test_servo() {
+    bool direction = true;
+    int currentMillis = 400;
+    int servoPin = 0;
+
+    printf("Press \'q\' to quit\n");
+    printf("Current millis: %04d", currentMillis);
+
+    setServo(servoPin, currentMillis);
+    char in;
+    while (true)
+    {   
+        printf("\b\b\b\b%04d", currentMillis);
+        currentMillis += (direction)?10:-10;
+        if (currentMillis >= 2400) direction = false;
+        if (currentMillis <= 400) direction = true;
+        setMillis(servoPin, currentMillis);
+        in = getchar_timeout_us(1000);
+        if (in == 'q'){
+            break;
+        }
+        sleep_ms(10);
+    }
+    printf("\n");
 }
