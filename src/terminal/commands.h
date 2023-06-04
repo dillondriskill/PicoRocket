@@ -31,8 +31,6 @@ typedef struct {
     char helpmsg[128];
 }Command;
 
-Command* commands[NUMBER_OF_COMMANDS];
-
 Command guidance_o = {
     .callerchar = 'g',
     .entry = &guidance_entry,
@@ -78,5 +76,7 @@ Command test_o = {
 Command test_servo_o = {
     .callerchar = 's',
     .entry = &test_servo,
-    .helpmsg = "Tests a servo on pin 0\n"
+    .helpmsg = "Turns the servos to the middle of their range\n"
 };
+
+Command* commands[NUMBER_OF_COMMANDS] = {&guidance_o, &reset_boot_o, &reset_o, &load_o, &test_o, &launch_o, &read_o, &test_servo_o};

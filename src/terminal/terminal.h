@@ -10,6 +10,14 @@
 */
 
 /**
+ * @brief Move cursor to x, y
+ * 
+ * @param x 
+ * @param y 
+*/
+void movcurs(char x, char y);
+
+/**
  * @brief Starts the terminal program. Will check for an open serial connection on the usb port
  * every 100 milliseconds, and will connect to that when it connects.
 */
@@ -26,3 +34,16 @@ void cls();
  *
 */
 void beep();
+
+/**
+ * @brief Enables the terminal cursor
+ * 
+*/
+void enablecurs();
+
+
+/**
+ * @brief Disables the terminal cursor
+ * 
+*/
+void disablecurs();

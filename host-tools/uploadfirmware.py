@@ -19,9 +19,9 @@ def main():
     file_path_str = input("Enter the filepath to the program to upload: ")
     file_path = Path(file_path_str)
     file = file_path.read_bytes()
-    print("Opened file: " + file_path_str)
+    print("Opened file: " + file_path_str + "\n")
     
-    print("Commanding device to enter programming mode...")
+    print("Commanding device to enter programming mode...\n")
     device.write(b'p\r')
 
     # Wait for response from device. We wait until the OK signal because it will also type the user prompt
@@ -53,7 +53,7 @@ def main():
             if written < len(file):
                 device.write(file[i].to_bytes(1, 'big'))
             else:
-                device.write(b'\0')
+                device.write(b'\xFF')
             written += 1
         # Recieve acknowledgement
         print("Device returned: " + str(device.read()))

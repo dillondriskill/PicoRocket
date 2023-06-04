@@ -17,5 +17,5 @@ pico_enable_stdio_uart(rocket 1)
 
 pico_add_extra_outputs(rocket)
 
-target_link_libraries(rocket pico_stdlib hardware_gpio hardware_watchdog pico_bootrom hardware_flash hardware_sync hardware_pwm hardware_clocks)
+target_link_libraries(rocket pico_stdlib pico_time hardware_gpio hardware_watchdog pico_bootrom hardware_flash hardware_sync hardware_pwm pico_multicore hardware_clocks)
 

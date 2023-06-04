@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "pico/stdlib.h"
 #include "tusb.h"
@@ -21,15 +22,11 @@
 
 static char get_command();
 static bool do_command(const char command);
-static void import_commands();
 
 void start_terminal() {
     bool connected;
     bool prompting = true;
     char command;
-
-    // actually be able to use the commands
-    import_commands();
 
 
     // Wait until a usb is connected
@@ -48,13 +45,21 @@ void start_terminal() {
     beep();
 
     /**
-     * 1) Put user prompt (output welcome message on first one)
+     * 1) Page title
      * 2) Get command
      * 3) Do command
      * 4) Repeat until a command requires exiting
      */
-    printf("PicoRocket Guidance System V0.1\n");
+    printf("\x1b\x63"); // resets terminal
+    printf("\x1b[7mPicoRocket Guidance System V0.2                                                 \x1b[0m\n"); // highlighted title bar
+    printf("\x1b[2;24;r"); // sets margins
+    printf("\x1b[?4h"); // smooth scrolling
+    enablecurs(); // make sure cursor is on
+
+
+    // command loop
     while (prompting) {
+        enablecurs();
         printf(">   ");
         command = get_command();
         prompting = do_command(command);
@@ -71,9 +76,8 @@ void start_terminal() {
 static char get_command() {
     bool entered = false;
     char userin = 0;
-    char oldin = 0;
+    char command = 0;
 
-    // Allow up to 255 characters to be typed, leaving room for the null terminator
     while (!entered) {
         userin = getchar();
         // Check for enter, and return the last character actually typed
@@ -81,15 +85,14 @@ static char get_command() {
             putchar('\n');
             entered = true;
         } else {
-            oldin = userin;
-            if (oldin != 0) {
-                putchar('\b');
+            if isalpha(userin) {
+                printf("\x1b[D%c", userin);
+                command = userin;
             }
-            putchar(oldin);
         }
     }
 
-    return oldin;
+    return command;
 }
 
 /**
@@ -111,38 +114,40 @@ static bool do_command(char command) {
 
         }
     } else {
+        // go through the list of commands and see if we find one, if we do find it
+        // use the function that was pointed at
         for (int i = 0; i < NUMBER_OF_COMMANDS; i++) {
             if (commands[i]->callerchar == command) {
-                (commands[i]->entry)();
+                (commands[i]->entry)(); // function pointer
                 found = true;
             }
         }
+        // wasnt found
         if (!found) {
             printf("Unknown Command!\n");
         }
     }
+
     return continuing;
 }
 
 void cls() {
-    printf("\x1b[2J");
+    movcurs(0, 2);
+    printf("\x1b[0J");
 }
 
 void beep() {
     putchar('\7');
 }
 
-/**
- * @brief Puts the commands from commands.h into an array. I will find a way to automate this better.
- *
-*/
-static void import_commands() {
-    commands[0] = &guidance_o;
-    commands[1] = &reset_o;
-    commands[2] = &reset_boot_o;
-    commands[3] = &load_o;
-    commands[4] = &launch_o;
-    commands[5] = &read_o;
-    commands[6] = &test_o;
-    commands[7] = &test_servo_o;
+void movcurs(char x, char y) {
+    printf("\x1b[%hhu;%hhuH", y, x);
+}
+
+void enablecurs() {
+    printf("\x1b[?25h");
+}
+
+void disablecurs() {
+    printf("\x1b[?25l");
 }

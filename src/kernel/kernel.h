@@ -12,6 +12,10 @@
 #define PROGRAM_LENGTH_OFFSET (512 * 1024)
 #define PROGRAM_OFFSET (513 * 1024)
 #define OK 0x00
+#define ZERODEGMILLIS 400
+#define MAXDEGMNILLIS 2400
+#define MILTODEG 0.09
+#define DEGTOMIL (1000/90)
 
 /**
  * @brief Initializes the system. Starts by initializing all the io, and turning on the led.
@@ -61,5 +65,34 @@ void test_flash();
 */
 void test_servo();
 
-void setMillis(int servoPin, float millis);
-void setServo(int servoPin, float startMillis);
+/**
+ * @brief puts a pwm signal of length millis on servoPin
+ * 
+ * @param servoPin the pin to set
+ * @param millis the length in milliseconds of the pwm cycle
+*/
+void setMillis(int servoPin, uint millis);
+
+/**
+ * @brief Sets up a GPIO pin to be a servo
+ * 
+ * @param servoPin the pin to be set up
+ * @param startMillis the milliseconds to start the pwm at
+*/
+void setServo(int servoPin, uint startMillis);
+
+/**
+ * @brief Set the servo on servoPin to the desired angle
+ * 
+ * @param servoPin servo to set
+ * @param deg angle to set
+*/
+void setDeg(int servoPin, float deg);
+
+/**
+ * @brief Set up a GPIO pin to be a servo
+ * 
+ * @param servoPin pin to be set up
+ * @param deg angle to start at
+*/
+void setServoDeg(int servoPin, float deg);

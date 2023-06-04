@@ -9,6 +9,11 @@
  *
 */
 
+#define SERVO1 6
+#define SERVO2 7
+#define SERVO3 8
+#define SERVO4 9
+
 /**
  * @brief Entry point for the guidance program
  * 
