@@ -53,7 +53,7 @@ def main():
             if written < len(file):
                 device.write(file[i].to_bytes(1, 'big'))
             else:
-                device.write(b'\xFF')
+                device.write(b'\x00')
             written += 1
         # Recieve acknowledgement
         print("Device returned: " + str(device.read()))

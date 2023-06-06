@@ -11,11 +11,13 @@
 
 #define PROGRAM_LENGTH_OFFSET (512 * 1024)
 #define PROGRAM_OFFSET (513 * 1024)
-#define OK 0x00
-#define ZERODEGMILLIS 400
-#define MAXDEGMNILLIS 2400
-#define MILTODEG 0.09
-#define DEGTOMIL (1000/90)
+#define ZERO_DEG_MILS 1000
+#define MAX_DEG_MILS 2000
+#define SERVO1 6
+#define SERVO2 7
+#define SERVO3 8
+#define SERVO4 9
+#define SERVORANGE 45
 
 /**
  * @brief Initializes the system. Starts by initializing all the io, and turning on the led.
@@ -36,12 +38,6 @@ void reset();
 void boot_reset();
 
 /**
- * @brief Launches the rocket, starts executing guidance program
- *
-*/
-void launch_rocket();
-
-/**
  * @brief Loads a guidance program into memory. Guidance programs are sequences of 
  *
 */
@@ -54,16 +50,10 @@ void load_program();
 void read_out();
 
 /**
- * @brief Tests the flash
+ * @brief connects to the host tools
  * 
 */
-void test_flash();
-
-/**
- * @brief Tests a servo on pin 0
- * 
-*/
-void test_servo();
+void host_tools();
 
 /**
  * @brief puts a pwm signal of length millis on servoPin
@@ -82,7 +72,7 @@ void setMillis(int servoPin, uint millis);
 void setServo(int servoPin, uint startMillis);
 
 /**
- * @brief Set the servo on servoPin to the desired angle
+ * @brief Set the servo on servoPin to the desired angle, 0 is facing forward
  * 
  * @param servoPin servo to set
  * @param deg angle to set

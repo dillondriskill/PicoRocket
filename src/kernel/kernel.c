@@ -28,8 +28,16 @@ float clockDiv = 64;
 float wrap = 39062;
 
 void initialize() {
+
+    // Set up all the GPIO
     stdio_init_all();
     gpio_pull_up(PICO_DEFAULT_LED_PIN);
+
+    // Set up the servos
+    setServoDeg(SERVO1, 0);
+    setServoDeg(SERVO2, 0);
+    setServoDeg(SERVO3, 0);
+    setServoDeg(SERVO4, 0);
 
     /**
      * @todo Fuck with the RTC
@@ -46,19 +54,17 @@ void boot_reset() {
     reset_usb_boot(0, 0);
 }
 
-void launch_rocket() {
-    // todo
-    printf("launching rocket!!!\n");
-}
-
 void load_program() {
     uint8_t pages;
     uint8_t data[FLASH_PAGE_SIZE];
     uint8_t* temp;
+
+    int ints; // Used for interupt handling
+
+    // Fill our data buffer with 0s
     for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
         data[i] = 0x00;
     }
-    int ints; // Used for interupt handling
 
     // Clear our data regions in flash
     ints = save_and_disable_interrupts();
@@ -66,7 +72,7 @@ void load_program() {
     restore_interrupts(ints);
 
     // Tell the host we're ready
-    putchar(OK);
+    putchar(0x00);
 
     // Recieve the number of pages
     pages = getchar();
@@ -90,7 +96,7 @@ void load_program() {
         restore_interrupts(ints);
 
         // Tell host we're good
-        putchar(OK);
+        putchar(0x00);
     }
 
     // Restart
@@ -101,70 +107,16 @@ void read_out() {
     uint8_t* length_ptr = (uint8_t*)XIP_BASE + PROGRAM_LENGTH_OFFSET;
     uint8_t* program_ptr = (uint8_t*)XIP_BASE + PROGRAM_OFFSET;
 
-    putchar('\n');
+    // Tell host were about to send the data
+    putchar(0x00);
+
+    // Send the data
     for (int i = 0; i < (*length_ptr) * FLASH_PAGE_SIZE; i++) {
-        if (i % 16 == 0) {
-            putchar('\n');
-        }
-        printf("%02hhX ", program_ptr[i]);
-    }
-    putchar('\n');
-}
-
-void test_flash() {
-    const uint32_t sector = 512 * 1024;
-    uint8_t buffer[FLASH_PAGE_SIZE];
-
-    disablecurs();
-    cls();
-
-    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
-        buffer[i] = i;
+        putchar(program_ptr[i]);
     }
 
-    movcurs(30, 3);
-    printf("Buffer filled with:");
-
-    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
-        if (i % 16 == 0) {
-            movcurs(16, (i/16) + 5);
-        }
-        printf("%02hhX ", buffer[i]);
-    }
-
-    movcurs(26, 23);
-    printf("Press any key to continue...");
-    getchar();
-
-    cls();
-
-    uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(sector, FLASH_SECTOR_SIZE);
-    flash_range_program(sector, buffer, FLASH_PAGE_SIZE);
-    restore_interrupts(ints);
-
-    const uint8_t* written_data = (uint8_t*)(XIP_BASE + sector);
-
-    movcurs(25, 3);
-    printf("Highlighted bytes are errors:");
-
-    for (int i = 0; i < FLASH_PAGE_SIZE; i++) {
-        if (i % 16 == 0) {
-            movcurs(16, (i/16) + 5);
-        }
-        if (written_data[i] == i) {
-            printf("%02hhX ", written_data[i]);
-        } else {
-            printf("\x1b[7m\x1b[5m%02hhX\x1b[0m ", written_data[i]);
-        }
-        
-    }
-    
-    movcurs(26, 23);
-    printf("Press any key to continue...");
-    getchar();
-
-    cls();
+    // Tell host we're done
+    putchar(0xFF);
 }
 
 void setMillis(int servoPin, uint millis) {
@@ -172,7 +124,10 @@ void setMillis(int servoPin, uint millis) {
 }
 
 void setDeg(int servoPin, float deg) {
-    uint mils = (deg * DEGTOMIL) + 1000;
+    // This ridiculous formula is just turning the supplied degree into the required millisecond pulse to be sent to the servo
+    // For example, -45 deg is 1000ms, 0 deg is 1500ms, and 45 deg is 2000ms
+    // Just mapping one range to the other
+    uint mils = ((ZERO_DEG_MILS + MAX_DEG_MILS) / 2) + (deg * (((MAX_DEG_MILS - ZERO_DEG_MILS) / 2) / SERVORANGE));
     setMillis(servoPin, mils);
 }
 
@@ -182,15 +137,12 @@ void setServo(int servoPin, uint startMillis) {
 
     pwm_config config = pwm_get_default_config();
 
-    uint64_t clockspeed = clock_get_hz(5);
-    clockDiv = 64;
-    wrap = 39062;
-
-    while (clockspeed / clockDiv / 50 > 65535 && clockDiv < 256) clockDiv += 64;
-    wrap = clockspeed / clockDiv / 50;
-
-    pwm_config_set_clkdiv(&config, clockDiv);
-    pwm_config_set_wrap(&config, wrap);
+    /*  Set the pwm clock to be divided 64 times, giving us a frequency of  
+        1953125 hz, which can be wrapped 39062 times to give us an effective
+        pulse width of 20 ms or 50 hz
+    */
+    pwm_config_set_clkdiv(&config, 64);
+    pwm_config_set_wrap(&config, 39062);
 
     pwm_init(slice_num, &config, true);
 
@@ -198,46 +150,48 @@ void setServo(int servoPin, uint startMillis) {
 }
 
 void setServoDeg(int servoPin, float deg) {
-    uint mils = (deg * DEGTOMIL) + 1000;
+    // This ridiculous formula is just turning the supplied degree into the required millisecond pulse to be sent to the servo
+    // For example, -45 deg is 1000ms, 0 deg is 1500ms, and 45 deg is 2000ms
+    // Just mapping one range to the other
+    uint mils = ((ZERO_DEG_MILS + MAX_DEG_MILS) / 2) + (deg * (((MAX_DEG_MILS - ZERO_DEG_MILS) / 2) / SERVORANGE));
     setServo(servoPin, mils);
 }
 
-void test_servo() {
+void host_tools() {
+    char in;
 
-    printf("Testing servo 1...\n");
-    setServoDeg(6, 0);
-    sleep_ms(250);
-    setDeg(6, 90);
-    sleep_ms(250);
-    setDeg(6, 45);
-    printf("Press enter to continue\n");
-    getchar();
+    putchar(0x00);
 
-    printf("Testing servo 2...\n");
-    setServoDeg(7, 0);
-    sleep_ms(250);
-    setDeg(7, 90);
-    sleep_ms(250);
-    setDeg(7, 45);
-    printf("Press enter to continue\n");
-    getchar();
+    do {
+        in = getchar();
 
-    printf("Testing servo 3...\n");
-    setServoDeg(8, 0);
-    sleep_ms(250);
-    setDeg(8, 90);
-    sleep_ms(250);
-    setDeg(8, 45);
-    printf("Press enter to continue\n");
-    getchar();
+        if (in == 0x00) {
+            // Host wants sensor information
 
-    printf("Testing servo 4...\n");
-    setServoDeg(9, 0);
-    sleep_ms(250);
-    setDeg(9, 90);
-    sleep_ms(250);
-    setDeg(9, 45);
-    printf("Press enter to continue\n");
-    getchar();
+            // TODO: SEND SENSOR INFORMAITON TO HOST
+        } else if (in == 0x01) {
+            // Host wants to send us servo angles
+            int8_t angle;
+            
+            angle = getchar();
+            setDeg(SERVO1, angle);
+            putchar(0x00);
+
+            angle = getchar();
+            setDeg(SERVO2, angle);
+            putchar(0x00);
+
+            angle = getchar();
+            setDeg(SERVO3, angle);
+            putchar(0x00);
+
+            angle = getchar();
+            setDeg(SERVO4, angle);
+            putchar(0x00);
+        } else if (in == 0x02) {
+            // Upload firmware
+        }
+
+    } while (in != 0xFF);
 
 }
