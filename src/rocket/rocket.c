@@ -13,6 +13,7 @@
 #include "pico/stdlib.h"
 #include "rocket.h"
 #include "../terminal/terminal.h"
+#include "../kernel/kernel.h"
 
  /**
   * @brief PicoRocket entry point

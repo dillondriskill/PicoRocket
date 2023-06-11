@@ -22,6 +22,7 @@
 #include "hardware/sync.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
+#include "hardware/i2c.h"
 
  // USED ONLY FOR THE SERVOS
 float clockDiv = 64;
@@ -29,15 +30,61 @@ float wrap = 39062;
 
 void initialize() {
 
+    uint8_t reg[2];
+    uint8_t buff[6];
+
     // Set up all the GPIO
     stdio_init_all();
     gpio_pull_up(PICO_DEFAULT_LED_PIN);
 
     // Set up the servos
-    setServoDeg(SERVO1, 0);
-    setServoDeg(SERVO2, 0);
-    setServoDeg(SERVO3, 0);
-    setServoDeg(SERVO4, 0);
+    setServoDeg(SERVO1, -45);
+    setServoDeg(SERVO2, -45);
+    setServoDeg(SERVO3, -45);
+    setServoDeg(SERVO4, -45);
+
+    sleep_ms(500);
+
+    setDeg(SERVO1, 45);
+    setDeg(SERVO2, 45);
+    setDeg(SERVO3, 45);
+    setDeg(SERVO4, 45);
+
+    sleep_ms(500);
+
+    setDeg(SERVO1, 0);
+    setDeg(SERVO2, 0);
+    setDeg(SERVO3, 0);
+    setDeg(SERVO4, 0);
+
+    // Set up i2c
+    // This will use I2C0 on the default SDA and SCL pins (4, 5 on a Pico)
+    i2c_init(i2c_default, 400 * 1000);
+    gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
+    gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
+
+    // Set up the gryo
+    reg[0] = GYRO_CONTROL_REG;
+    reg[1] = GYRO_CONTROL_BYTE;
+    i2c_write_blocking(i2c_default, GYRO_ADDR, &reg, 2, false);
+    reg[0] = GYRO_CONFIG_REG;
+    reg[1] = GYRO_CONFIG_BYTE;
+    i2c_write_blocking(i2c_default, GYRO_ADDR, &reg, 2, false);
+
+    // Set up accel
+    reg[0] = ACCEL_CONTROL_REG;
+    reg[1] = ACCEL_CONTROL_BYTE;
+    i2c_write_blocking(i2c_default, ACCEL_ADDR, &reg, 2, false);
+    reg[0] = ACCEL_CONFIG_REG;
+    reg[1] = ACCEL_CONFIG_BYTE;
+    i2c_write_blocking(i2c_default, ACCEL_ADDR, &reg, 2, false);
+
+    // Set up mag
+    reg[0] = MAG_CONTROL_REG;
+    reg[1] = MAG_CONTROL_BYTE;
+    i2c_write_blocking(i2c_default, MAG_ADDR, &reg, 2, false);
 
     /**
      * @todo Fuck with the RTC
@@ -137,7 +184,7 @@ void setServo(int servoPin, uint startMillis) {
 
     pwm_config config = pwm_get_default_config();
 
-    /*  Set the pwm clock to be divided 64 times, giving us a frequency of  
+    /*  Set the pwm clock to be divided 64 times, giving us a frequency of
         1953125 hz, which can be wrapped 39062 times to give us an effective
         pulse width of 20 ms or 50 hz
     */
@@ -157,41 +204,94 @@ void setServoDeg(int servoPin, float deg) {
     setServo(servoPin, mils);
 }
 
+bool reserved_addr(uint8_t addr) {
+    return (addr & 0x78) == 0 || (addr & 0x78) == 0x78;
+}
+
 void host_tools() {
     char in;
-
-    putchar(0x00);
 
     do {
         in = getchar();
 
-        if (in == 0x00) {
-            // Host wants sensor information
+        // Tell host we're here
+        putchar(in);
 
-            // TODO: SEND SENSOR INFORMAITON TO HOST
+        if (in == 0x00) {
+            uint8_t reg = 0x28;
+            uint8_t buff[1];
+            i2c_write_blocking(i2c_default, GYRO_ADDR, &reg, 1, true);
+            char worked = i2c_read_blocking(i2c_default, GYRO_ADDR, buff, 1, false);
+
+            for (uint8_t i = 0; i < 1; i++) {
+                putchar(buff[i]);
+                getchar();
+            }
+
+            getchar();
+
         } else if (in == 0x01) {
             // Host wants to send us servo angles
             int8_t angle;
-            
+
             angle = getchar();
             setDeg(SERVO1, angle);
-            putchar(0x00);
+            putchar(angle);
 
             angle = getchar();
             setDeg(SERVO2, angle);
-            putchar(0x00);
+            putchar(angle);
 
             angle = getchar();
             setDeg(SERVO3, angle);
-            putchar(0x00);
+            putchar(angle);
 
             angle = getchar();
             setDeg(SERVO4, angle);
-            putchar(0x00);
+            putchar(angle);
+
         } else if (in == 0x02) {
-            // Upload firmware
+            load_program();
+        } else if (in == 0x03) {
+            read_out();
+        } else if (in == 0x04) {
+            boot_reset();
+        } else if (in == 'b') {
+            printf("\nI2C Bus Scan\n");
+            printf("   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F\n");
+
+            for (int addr = 0; addr < (1 << 7); ++addr) {
+                if (addr % 16 == 0) {
+                    printf("%02x ", addr);
+                }
+
+                // Perform a 1-byte dummy read from the probe address. If a slave
+
+                // acknowledges this address, the function returns the number of bytes
+
+                // transferred. If the address byte is ignored, the function returns
+
+                // -1.
+
+
+                // Skip over any reserved addresses.
+
+                int ret;
+                uint8_t rxdata;
+                if (reserved_addr(addr))
+                    ret = PICO_ERROR_GENERIC;
+                else
+
+                    ret = i2c_read_blocking(i2c_default, addr, &rxdata, 1, false);
+
+                printf(ret < 0 ? "." : "@");
+                printf(addr % 16 == 15 ? "\n" : "  ");
+            }
+            printf("Done.\n");
         }
 
     } while (in != 0xFF);
+
+    reset();
 
 }

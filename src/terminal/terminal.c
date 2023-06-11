@@ -35,6 +35,7 @@ void connect() {
     // Give the serial some time to connect before sending data out
     sleep_ms(1000);
 
+    // Connect to host tools
     host_tools();
 
     reset();

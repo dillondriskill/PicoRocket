@@ -19,6 +19,35 @@
 #define SERVO4 9
 #define SERVORANGE 45
 
+#define ACCEL_ADDR  0x00 // 19
+#define MAG_ADDR    0x00 // 1e
+#define GYRO_ADDR   0b1101001
+
+#define ACCEL_X     0x14
+#define ACCEL_Y     0x54
+#define ACCEL_Z     0x34
+
+#define MAG_X       0xC0
+#define MAG_Y       0xA0
+#define MAG_Z       0xE0
+
+#define GYRO_X      0x28
+#define GYRO_Y      0x2A
+#define GYRO_Z      0x2C
+
+#define ACCEL_CONTROL_REG   0x04
+#define ACCEL_CONTROL_BYTE  0b11100000
+#define ACCEL_CONFIG_REG    0xC4
+#define ACCEL_CONFIG_BYTE   0b00001100
+
+#define MAG_CONTROL_REG     0x80
+#define MAG_CONTROL_BYTE    0b00000111
+
+#define GYRO_CONTROL_REG    0x20
+#define GYRO_CONTROL_BYTE   0b00001111
+#define GYRO_CONFIG_REG     0x23
+#define GYRO_CONFIG_BYTE    0b00000000
+
 /**
  * @brief Initializes the system. Starts by initializing all the io, and turning on the led.
  *
